@@ -8,3 +8,30 @@ edition = "2018"
 [dependencies]
 usbd-serial = "0.1.1"
 usb-device = "0.2.8"
+int-enum = "0.4.0"
+trinket_m0 = { version = "0.10.0", features = ["unproven", "usb"], optional = false }
+embedded-hal = { version = "0.2.6", optional = false }
+cortex-m-rt = { version = "0.6", optional = false }
+cortex-m = { version = "0.6", optional = false }
+panic-halt = { version = "0.2", optional = false }
+smart-leds = { version = "0.3", optional = false }
+smart-leds-trait = { version = "0.2", optional = false }
+ws2812-spi = { version = "0.4", features = ["mosi_idle_high"], optional = false }
+rgb = { version = "0.8.27", optional = false }
+
+[features]
+# trinket = [
+#     "trinket_m0",
+#     "embedded-hal",
+#     "cortex-m-rt",
+#     "cortex-m",
+#     "panic-halt",
+#     "smart-leds",
+#     "smart-leds-trait",
+#     "ws2812-spi",
+#     "rgb"
+# ]
+
+[[example]]
+name = "trinket_m0"
+# required-features = ["trinket"]
