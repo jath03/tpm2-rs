@@ -6,7 +6,7 @@ use panic_halt as _;
 use bsp::hal;
 use trinket_m0 as bsp;
 use ws2812_spi as ws2812;
-// use apa102_spi as apa102;
+use apa102_spi as apa102;
 
 use bsp::clock::GenericClockController;
 use bsp::delay::Delay;
@@ -14,10 +14,10 @@ use bsp::pac::{CorePeripherals, Peripherals};
 use bsp::prelude::*;
 use bsp::timer::TimerCounter;
 
-// use crate::apa102::Apa102;
+use crate::apa102::Apa102;
 use crate::ws2812::Ws2812;
 use smart_leds::SmartLedsWrite;
-use smart_leds_trait::{RGBW, White};
+use smart_leds_trait::{RGBW, RGB8, White};
 // use cortex_m_rt::entry;
 
 use bsp::entry;
@@ -30,27 +30,6 @@ use tpm2_rs::tpm2::{Tpm2Packet, Tpm2Type, TPM2_ACK, TPM2_START};
 
 const NUM_LEDS: usize = 90;
 
-// fn my_callback<S: SmartLedsWrite>(strip: S) -> impl FnMut(&[u8]) -> &[u8]
-//     where
-//         <S as SmartLedsWrite>::Color: From<RGBW<u8>>,
-//         // S: SmartLedsWrite<Error = Debug>
-//
-// {
-//     | data: &[u8] | {
-//         let colors = data.chunks(3).into_iter().map(|x| {
-//             <Ws2812<_, devices::Sk6812w> as SmartLedsWrite>::Color{ r: x[0], g: x[1], b: x[2], a: White(0) }
-//         });
-//         strip.write(colors).ok();
-//         // strip.write(data.chunks(3).map(|x| -> RGBA<u8> {
-//         //     tmp[..].copy_from_slice(x);
-//         //     RGB8::from(tmp).alpha(0)
-//         // }).cloned())
-//         //   .unwrap();
-//             // strip.write([data].iter().cloned()).unwrap();
-//         &[] as &[u8]
-//         // dotstar.write([RGB8 { r: data[0], g: data[1], b: data[2] }].iter().cloned()).unwrap();
-//     }
-// }
 
 
 #[entry]
@@ -67,9 +46,9 @@ fn main() -> ! {
     let mut pins = bsp::Pins::new(peripherals.PORT);
     let delay = Delay::new(core.SYST, &mut clocks);
 
-    // let di = pins.dotstar_di.into_push_pull_output(&mut pins.port);
-    // let ci = pins.dotstar_ci.into_push_pull_output(&mut pins.port);
-    // let nc = pins.dotstar_nc.into_floating_input(&mut pins.port);
+    let di = pins.dotstar_di.into_push_pull_output(&mut pins.port);
+    let ci = pins.dotstar_ci.into_push_pull_output(&mut pins.port);
+    let nc = pins.dotstar_nc.into_floating_input(&mut pins.port);
 
     let gclk0 = clocks.gclk0();
     let timer_clock = clocks.tcc2_tc3(&gclk0).unwrap();
@@ -108,9 +87,10 @@ fn main() -> ! {
 
     let mut ws = Ws2812::new_sk6812w(spi);
 
-    // let spi = bitbang_hal::spi::SPI::new(apa102_spi::MODE, nc, di, ci, timer);
-    //
-    // let mut dotstar = Apa102::new(spi);
+    let spi = bitbang_hal::spi::SPI::new(apa102_spi::MODE, nc, di, ci, timer);
+
+    let mut dotstar = Apa102::new(spi);
+    dotstar.write([RGB8 {r: 0, g: 0, b: 0}].iter().cloned()).ok();
 
     // let size = buff.len();
     //
@@ -125,7 +105,7 @@ fn main() -> ! {
     // let mut tpm2 = Tpm2::new(&mut serial, &mut usb_dev, &mut buff, size, Some(my_cb), None, None);
 
     let mut colors: [RGBW<u8>; NUM_LEDS] = [RGBW {
-        r: 1,
+        r: 0,
         g: 0,
         b: 0,
         a: White(0)

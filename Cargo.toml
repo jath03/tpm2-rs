@@ -12,12 +12,14 @@ num-traits = { version = "0.2", default-features = false }
 num-derive = { version = "0.3", default-features = false }
 trinket_m0 = { version = "0.10.0", features = ["unproven", "usb"], optional = true }
 embedded-hal = { version = "0.2.6", optional = true }
+bitbang-hal = {version = "0.3.2", optional = true }
 cortex-m-rt = { version = "0.6", optional = true }
 cortex-m = { version = "0.6", optional = true }
 panic-halt = { version = "0.2", optional = true }
 smart-leds = { version = "0.3", optional = true }
 smart-leds-trait = { version = "0.2", optional = true }
 ws2812-spi = { version = "0.4", features = ["mosi_idle_high"], optional = true }
+apa102-spi = { version  = "0.3", optional = true }
 rgb = { version = "0.8.27", optional = true }
 
 [features]
@@ -26,12 +28,14 @@ trinket = [
     "usb-device",
     "trinket_m0",
     "embedded-hal",
+    "bitbang-hal",
     "cortex-m-rt",
     "cortex-m",
     "panic-halt",
     "smart-leds",
     "smart-leds-trait",
     "ws2812-spi",
+    "apa102-spi",
     "rgb"
 ]
 
