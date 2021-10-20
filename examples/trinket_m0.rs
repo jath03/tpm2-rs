@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-#![feature(more_qualified_paths)]
 
 use panic_halt as _;
 
@@ -17,9 +16,8 @@ use bsp::timer::TimerCounter;
 
 // use crate::apa102::Apa102;
 use crate::ws2812::Ws2812;
-use crate::ws2812::devices;
 use smart_leds::SmartLedsWrite;
-use smart_leds_trait::{RGBW, RGB8, RGBA, White};
+use smart_leds_trait::{RGBW, White};
 // use cortex_m_rt::entry;
 
 use bsp::entry;
@@ -28,7 +26,7 @@ use bsp::entry;
 use usb_device::prelude::*;
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
-use tpm2_rs::tpm2::Tpm2;
+use tpm2_rs::tpm2::{Tpm2Packet, Tpm2Type, TPM2_ACK, TPM2_START};
 
 const NUM_LEDS: usize = 90;
 
@@ -58,7 +56,7 @@ const NUM_LEDS: usize = 90;
 #[entry]
 fn main() -> ! {
     let mut peripherals = Peripherals::take().unwrap();
-    let mut core = CorePeripherals::take().unwrap();
+    let core = CorePeripherals::take().unwrap();
     let mut clocks = GenericClockController::with_internal_32kosc(
         peripherals.GCLK,
         &mut peripherals.PM,
@@ -67,7 +65,7 @@ fn main() -> ! {
     );
 
     let mut pins = bsp::Pins::new(peripherals.PORT);
-    let mut delay = Delay::new(core.SYST, &mut clocks);
+    let delay = Delay::new(core.SYST, &mut clocks);
 
     // let di = pins.dotstar_di.into_push_pull_output(&mut pins.port);
     // let ci = pins.dotstar_ci.into_push_pull_output(&mut pins.port);
@@ -106,6 +104,7 @@ fn main() -> ! {
             .build();
 
     let mut buff = [0u8; NUM_LEDS*3 + 5];
+    let mut data = [0u8; NUM_LEDS*3 + 5];
 
     let mut ws = Ws2812::new_sk6812w(spi);
 
@@ -113,20 +112,75 @@ fn main() -> ! {
     //
     // let mut dotstar = Apa102::new(spi);
 
-    let size = buff.len();
+    // let size = buff.len();
+    //
+    // let my_cb = | data: &[u8] | -> Option<&[u8]> {
+        // let colors = data.chunks(3).into_iter().map(|x| {
+        //         RGBW{ r: x[0], g: x[1], b: x[2], a: White(0) }
+        //     });
+        //     ws.write(colors).ok();
+    //     None
+    // };
+    //
+    // let mut tpm2 = Tpm2::new(&mut serial, &mut usb_dev, &mut buff, size, Some(my_cb), None, None);
 
-    let my_cb = | data: &[u8] | -> Option<&[u8]> {
-        let colors = data.chunks(3).into_iter().map(|x| {
-            RGBW{ r: x[0], g: x[1], b: x[2], a: White(0) }
-        });
-        ws.write(colors).ok();
-        None
-    };
-
-    let mut tpm2 = Tpm2::new(&mut serial, &mut usb_dev, &mut buff, size, Some(my_cb), None, None);
-
+    let mut colors: [RGBW<u8>; NUM_LEDS] = [RGBW {
+        r: 1,
+        g: 0,
+        b: 0,
+        a: White(0)
+    }; NUM_LEDS];
+    ws.write(colors.iter().cloned()).ok();
+    let mut pkt_count: usize = 0;
+    let mut offset: usize = 0;
     loop {
-        tpm2.update().ok();
+        // tpm2.update().ok();
+        if !usb_dev.poll(&mut [&mut serial]) {
+            continue;
+        }
+        if let Ok(count) = serial.read(&mut buff) {
+            if pkt_count == 0 {
+                offset = buff.iter().position(|&r| r == TPM2_START).unwrap_or(count);
+            }
+            for (i, x) in (pkt_count..pkt_count + count - offset).zip(offset..count) {
+                if i < data.len() && x < buff.len() {
+                    data[i] = buff[x];
+                }
+            }
+            pkt_count += count;
+        } else {
+            continue;
+        }
+
+        if pkt_count >= buff.len() {
+            pkt_count = 0;
+            match Tpm2Packet::new(&data) {
+                Ok(pkt) => {
+                    match pkt.pkt_type {
+                        Tpm2Type::Data => {
+                            pkt.data.chunks(3).into_iter().zip(colors.iter_mut()).map(| (x, o) | {
+                                let first = x[0];
+                                if x.iter().all(|&item| item == first) {
+                                    *o = RGBW { r: 0, g: 0, b: 0, a: White(first) };
+                                } else {
+                                    *o = RGBW{ r: x[0], g: x[1], b: x[2], a: White(0) };
+                                }
+                            }).count();
+                            ws.write(colors.iter().cloned()).ok();
+                        },
+                        _ => {}
+                    }
+                },
+                Err(code) => {
+                    serial.write(&data).ok();
+                    serial.write(&[0xFF, 0xFF, code, 0xFF, 0xFF]).ok();
+                    serial.flush().ok();
+                    continue;
+                }
+            }
+            serial.write(&[TPM2_ACK]).ok();
+        }
+        // }
     };
 }
 
