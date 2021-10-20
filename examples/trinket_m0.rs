@@ -92,18 +92,6 @@ fn main() -> ! {
     let mut dotstar = Apa102::new(spi);
     dotstar.write([RGB8 {r: 0, g: 0, b: 0}].iter().cloned()).ok();
 
-    // let size = buff.len();
-    //
-    // let my_cb = | data: &[u8] | -> Option<&[u8]> {
-        // let colors = data.chunks(3).into_iter().map(|x| {
-        //         RGBW{ r: x[0], g: x[1], b: x[2], a: White(0) }
-        //     });
-        //     ws.write(colors).ok();
-    //     None
-    // };
-    //
-    // let mut tpm2 = Tpm2::new(&mut serial, &mut usb_dev, &mut buff, size, Some(my_cb), None, None);
-
     let mut colors: [RGBW<u8>; NUM_LEDS] = [RGBW {
         r: 0,
         g: 0,
@@ -114,7 +102,6 @@ fn main() -> ! {
     let mut pkt_count: usize = 0;
     let mut offset: usize = 0;
     loop {
-        // tpm2.update().ok();
         if !usb_dev.poll(&mut [&mut serial]) {
             continue;
         }
@@ -160,24 +147,5 @@ fn main() -> ! {
             }
             serial.write(&[TPM2_ACK]).ok();
         }
-        // }
     };
 }
-
-// static mut USB_ALLOCATOR: Option<UsbBusAllocator<UsbBus>> = None;
-// static mut TPM2_DRIVER: Option<TPM2<UsbBus>> = None;
-//
-// fn poll_usb() {
-//     unsafe {
-//         if let Some(tpm) = TPM2_DRIVER  {
-//             tpm.update();
-//         }
-//     };
-// }
-//
-// #[interrupt]
-// fn USB() {
-//     poll_usb();
-// }
-
-// fn update_light()
