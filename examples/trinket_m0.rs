@@ -3,9 +3,10 @@
 
 use panic_halt as _;
 
+use cortex_m;
 use bsp::hal;
 use trinket_m0 as bsp;
-use ws2812_spi as ws2812;
+use ws2812_nop_samd21 as ws2812;
 use apa102_spi as apa102;
 
 use bsp::clock::GenericClockController;
@@ -28,7 +29,7 @@ use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 use tpm2_rs::tpm2::{Tpm2Packet, Tpm2Type, TPM2_ACK, TPM2_START};
 
-const NUM_LEDS: usize = 90;
+const NUM_LEDS: usize = 150;
 
 
 
@@ -44,27 +45,9 @@ fn main() -> ! {
     );
 
     let mut pins = bsp::Pins::new(peripherals.PORT);
-    let delay = Delay::new(core.SYST, &mut clocks);
+    let mut delay = Delay::new(core.SYST, &mut clocks);
 
-    let di = pins.dotstar_di.into_push_pull_output(&mut pins.port);
-    let ci = pins.dotstar_ci.into_push_pull_output(&mut pins.port);
-    let nc = pins.dotstar_nc.into_floating_input(&mut pins.port);
-
-    let gclk0 = clocks.gclk0();
-    let timer_clock = clocks.tcc2_tc3(&gclk0).unwrap();
-    let mut timer = TimerCounter::tc3_(&timer_clock, peripherals.TC3, &mut peripherals.PM);
-    timer.start(5.khz());
-
-    let spi = bsp::spi_master(
-        &mut clocks,
-        3.mhz(),
-        peripherals.SERCOM0,
-        &mut peripherals.PM,
-        pins.d3,
-        pins.d4,
-        pins.d2,
-        &mut pins.port,
-    );
+    let neopixel_pin = pins.d4.into_push_pull_output(&mut pins.port);
 
     let bus_allocator = bsp::usb_allocator(
         peripherals.USB,
@@ -85,20 +68,17 @@ fn main() -> ! {
     let mut buff = [0u8; NUM_LEDS*3 + 5];
     let mut data = [0u8; NUM_LEDS*3 + 5];
 
-    let mut ws = Ws2812::new_sk6812w(spi);
-
-    let spi = bitbang_hal::spi::SPI::new(apa102_spi::MODE, nc, di, ci, timer);
-
-    let mut dotstar = Apa102::new(spi);
-    dotstar.write([RGB8 {r: 0, g: 0, b: 0}].iter().cloned()).ok();
+    let mut ws = Ws2812::new_sk6812w(neopixel_pin);
 
     let mut colors: [RGBW<u8>; NUM_LEDS] = [RGBW {
-        r: 0,
+        r: 100,
         g: 0,
         b: 0,
         a: White(0)
     }; NUM_LEDS];
-    ws.write(colors.iter().cloned()).ok();
+    cortex_m::interrupt::free(|_| {
+        ws.write(colors.iter().cloned()).ok();
+    });
     let mut pkt_count: usize = 0;
     let mut offset: usize = 0;
     loop {
@@ -126,16 +106,22 @@ fn main() -> ! {
                     match pkt.pkt_type {
                         Tpm2Type::Data => {
                             pkt.data.chunks(3).into_iter().zip(colors.iter_mut()).map(| (x, o) | {
-                                let first = x[0];
-                                if x.iter().all(|&item| item == first) {
-                                    *o = RGBW { r: 0, g: 0, b: 0, a: White(first) };
+                                if x.iter().all(|&item| item == x[0]) {
+                                    *o = RGBW { r: 0, g: 0, b: 0, a: White(x[0]) };
                                 } else {
                                     *o = RGBW{ r: x[0], g: x[1], b: x[2], a: White(0) };
                                 }
                             }).count();
-                            ws.write(colors.iter().cloned()).ok();
+                            cortex_m::interrupt::free(|_| {
+                                ws.write(colors.iter().cloned()).ok();
+                            });
                         },
-                        _ => {}
+                        Tpm2Type::Cmd => {
+
+                        },
+                        Tpm2Type::Resp => {
+                            serial.write(&NUM_LEDS.to_be_bytes()).ok();
+                        }
                     }
                 },
                 Err(code) => {
