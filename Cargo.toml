@@ -1,45 +1,9 @@
 [package]
 name = "tpm2-rs"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-usbd-serial = {version = "0.1.1", optional = true }
-usb-device = { version = "0.2.8", optional = true }
-num-traits = { version = "0.2", default-features = false }
-num-derive = { version = "0.3", default-features = false }
-trinket_m0 = { version = "0.11", features = ["unproven", "usb"], optional = true }
-embedded-hal = { version = "0.2.7", optional = true }
-bitbang-hal = {version = "0.3.2", optional = true }
-cortex-m-rt = { version = "0.7", optional = true }
-cortex-m = { version = "0.7", optional = true }
-panic-halt = { version = "0.2", optional = true }
-smart-leds = { version = "0.3", optional = true }
-smart-leds-trait = { version = "0.2", optional = true }
-# ws2812-spi = { version = "0.4", features = ["mosi_idle_high"], optional = true }
-ws2812-nop-samd21 = { git = "https://github.com/jath03/ws2812-nop-samd21.git", optional = true }
-apa102-spi = { version  = "0.3", optional = true }
-rgb = { version = "0.8.27", optional = true }
-
-[features]
-trinket = [
-    "usbd-serial",
-    "usb-device",
-    "trinket_m0",
-    "embedded-hal",
-    "bitbang-hal",
-    "cortex-m-rt",
-    "cortex-m",
-    "panic-halt",
-    "smart-leds",
-    "smart-leds-trait",
-    "ws2812-nop-samd21",
-    "apa102-spi",
-    "rgb"
-]
-
-[[example]]
-name = "trinket_m0"
-required-features = ["trinket"]
+nom = { version = "7.1", default-features = false }
